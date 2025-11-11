@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Device Viewer - Track All Devices</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="tracker-style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📺 Multi-Device Viewer</h1>
+            <div class="header-controls">
+                <button id="refreshDevices" class="btn-icon" title="Refresh">🔄</button>
+                <button id="fitAll" class="btn-icon" title="Fit All Devices">🎯</button>
+                <div class="status" id="status">
+                    <span class="status-indicator online"></span>
+                    <span id="statusText">Connected</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="viewer-layout">
+            <!-- Sidebar with device list -->
+            <div class="devices-sidebar">
+                <h3>📱 Active Devices (<span id="deviceCount">0</span>)</h3>
+                
+                <div class="sidebar-controls">
+                    <button id="showAll" class="btn btn-small btn-info">Show All</button>
+                    <button id="hideAll" class="btn btn-small btn-warning">Hide All</button>
+                </div>
+
+                <div id="devicesList" class="devices-list">
+                    <p class="no-devices">No active devices found</p>
+                </div>
+
+                <div class="add-device-section">
+                    <h4>➕ Add New Device</h4>
+                    <p>Open this link on any device you want to track:</p>
+                    <div class="link-box">
+                        <input type="text" id="trackerLink" readonly class="link-input">
+                        <button id="copyLink" class="btn btn-small btn-primary">Copy</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main map area -->
+            <div class="map-container">
+                <div id="map"></div>
+                
+                <div class="map-controls">
+                    <button id="toggleLabels" class="btn btn-secondary">🏷️ Toggle Labels</button>
+                    <button id="togglePaths" class="btn btn-secondary">📍 Toggle Paths</button>
+                    <select id="mapStyle" class="select-small">
+                        <option value="street">Street</option>
+                        <option value="satellite">Satellite</option>
+                        <option value="dark">Dark</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        import { getDatabase, ref, onValue, off, query, orderByChild, equalTo } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyCvxVfPYLKoI6FCSy3D3vSmuw5HYRUHvgg",
+            authDomain: "tracking-75c9a.firebaseapp.com",
+            databaseURL: "https://tracking-75c9a-default-rtdb.firebaseio.com",
+            projectId: "tracking-75c9a",
+            storageBucket: "tracking-75c9a.firebasestorage.app",
+            messagingSenderId: "912974869069",
+            appId: "1:912974869069:web:2ab1fb34adf19181872204",
+            measurementId: "G-STEERK07QF"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const database = getDatabase(app);
+
+        // Global variables
+        let map;
+        let devices = {};
+        let markers = {};
+        let paths = {};
+        let showLabels = true;
+        let showPaths = true;
+        let currentUser = null;
+
+        // Check authentication
+        onAuthStateChanged(auth, (user) => {
+            if (!user) {
+                // Not logged in, redirect to index
+                alert('Please login first to use the viewer');
+                window.location.href = 'index.html';
+                return;
+            }
+            currentUser = user;
+            // Initialize after auth
+            initMap();
+            listenToDevices();
+        });
+
+        // Device colors
+        const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#34495e'];
+
+        // Map layers
+        const mapLayers = {
+            street: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 19
+            }),
+            satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: 'Tiles © Esri',
+                maxZoom: 19
+            }),
+            dark: L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '© OpenStreetMap © CARTO',
+                maxZoom: 19
+            })
+        };
+
+        let currentLayer = mapLayers.street;
+
+        // Initialize map
+        function initMap() {
+            map = L.map('map').setView([0, 0], 2);
+            currentLayer.addTo(map);
+        }
+
+        // Get device color
+        function getDeviceColor(index) {
+            return colors[index % colors.length];
+        }
+
+        // Update device on map
+        function updateDeviceOnMap(deviceId, deviceData, index) {
+            const { latitude, longitude, name, accuracy, speed, battery, lastUpdate } = deviceData;
+            const color = getDeviceColor(index);
+
+            // Remove old marker
+            if (markers[deviceId]) {
+                map.removeLayer(markers[deviceId]);
+            }
+
+            // Create marker
+            const icon = L.divIcon({
+                className: 'device-marker',
+                html: `
+                    <div style="
+                        background-color: ${color};
+                        width: 24px;
+                        height: 24px;
+                        border-radius: 50%;
+                        border: 3px solid white;
+                        box-shadow: 0 0 10px rgba(0,0,0,0.5);
+                    "></div>
+                    ${showLabels ? `<div style="
+                        background: white;
+                        padding: 4px 8px;
+                        border-radius: 4px;
+                        font-weight: bold;
+                        margin-top: 5px;
+                        white-space: nowrap;
+                        box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+                    ">${name}</div>` : ''}
+                `,
+                iconSize: [24, 24],
+                iconAnchor: [12, 12]
+            });
+
+            const marker = L.marker([latitude, longitude], { icon }).addTo(map);
+
+            // Popup
+            marker.bindPopup(`
+                <div style="min-width: 200px;">
+                    <h3 style="margin: 0 0 10px 0; color: ${color};">${name}</h3>
+                    <p><strong>Lat:</strong> ${latitude.toFixed(6)}</p>
+                    <p><strong>Lng:</strong> ${longitude.toFixed(6)}</p>
+                    <p><strong>Accuracy:</strong> ±${accuracy.toFixed(0)}m</p>
+                    <p><strong>Speed:</strong> ${speed.toFixed(1)} km/h</p>
+                    <p><strong>Battery:</strong> ${battery ? battery + '%' : 'N/A'}</p>
+                    <p><strong>Updated:</strong> ${new Date(lastUpdate).toLocaleTimeString()}</p>
+                </div>
+            `);
+
+            markers[deviceId] = marker;
+
+            // Update path
+            if (!paths[deviceId]) {
+                paths[deviceId] = {
+                    points: [],
+                    polyline: L.polyline([], {
+                        color: color,
+                        weight: 3,
+                        opacity: 0.7
+                    }).addTo(map)
+                };
+            }
+
+            paths[deviceId].points.push([latitude, longitude]);
+            if (paths[deviceId].points.length > 100) {
+                paths[deviceId].points.shift();
+            }
+            paths[deviceId].polyline.setLatLngs(paths[deviceId].points);
+
+            if (!showPaths) {
+                map.removeLayer(paths[deviceId].polyline);
+            }
+        }
+
+        // Update devices list
+        function updateDevicesList() {
+            const devicesList = document.getElementById('devicesList');
+            const deviceCount = Object.keys(devices).length;
+            document.getElementById('deviceCount').textContent = deviceCount;
+
+            if (deviceCount === 0) {
+                devicesList.innerHTML = '<p class="no-devices">No active devices found</p>';
+                return;
+            }
+
+            devicesList.innerHTML = Object.entries(devices).map(([deviceId, data], index) => {
+                const color = getDeviceColor(index);
+                const timeSince = Math.floor((Date.now() - data.timestamp) / 1000);
+                const isRecent = timeSince < 60;
+
+                return `
+                    <div class="device-card" style="border-left: 4px solid ${color};">
+                        <div class="device-header">
+                            <span class="device-name">${data.name}</span>
+                            <span class="device-status ${isRecent ? 'active' : 'inactive'}">
+                                ${isRecent ? '🟢' : '⚫'}
+                            </span>
+                        </div>
+                        <div class="device-details">
+                            <small>Speed: ${data.speed.toFixed(1)} km/h</small>
+                            <small>Battery: ${data.battery ? data.battery + '%' : 'N/A'}</small>
+                            <small>Updated: ${timeSince}s ago</small>
+                        </div>
+                        <div class="device-actions">
+                            <button onclick="focusDevice('${deviceId}')" class="btn-tiny">📍 Locate</button>
+                            <button onclick="toggleDevice('${deviceId}')" class="btn-tiny">👁️ Toggle</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Focus on device
+        window.focusDevice = function(deviceId) {
+            const device = devices[deviceId];
+            if (device && markers[deviceId]) {
+                map.setView([device.latitude, device.longitude], 16);
+                markers[deviceId].openPopup();
+            }
+        };
+
+        // Toggle device visibility
+        window.toggleDevice = function(deviceId) {
+            if (markers[deviceId]) {
+                if (map.hasLayer(markers[deviceId])) {
+                    map.removeLayer(markers[deviceId]);
+                    if (paths[deviceId]) {
+                        map.removeLayer(paths[deviceId].polyline);
+                    }
+                } else {
+                    markers[deviceId].addTo(map);
+                    if (paths[deviceId] && showPaths) {
+                        paths[deviceId].polyline.addTo(map);
+                    }
+                }
+            }
+        };
+
+        // Listen to Firebase - only user's devices
+        function listenToDevices() {
+            const devicesRef = ref(database, 'devices');
+            const userDevicesQuery = query(devicesRef, orderByChild('userId'), equalTo(currentUser.uid));
+            
+            onValue(userDevicesQuery, (snapshot) => {
+                devices = snapshot.val() || {};
+                
+                // Update map
+                Object.entries(devices).forEach(([deviceId, data], index) => {
+                    updateDeviceOnMap(deviceId, data, index);
+                });
+
+                // Update list
+                updateDevicesList();
+            });
+        }
+
+        // Fit all devices
+        document.getElementById('fitAll').addEventListener('click', () => {
+            const bounds = [];
+            Object.values(devices).forEach(device => {
+                bounds.push([device.latitude, device.longitude]);
+            });
+            
+            if (bounds.length > 0) {
+                map.fitBounds(bounds, { padding: [50, 50] });
+            }
+        });
+
+        // Show/Hide all
+        document.getElementById('showAll').addEventListener('click', () => {
+            Object.keys(markers).forEach(deviceId => {
+                if (!map.hasLayer(markers[deviceId])) {
+                    markers[deviceId].addTo(map);
+                    if (paths[deviceId] && showPaths) {
+                        paths[deviceId].polyline.addTo(map);
+                    }
+                }
+            });
+        });
+
+        document.getElementById('hideAll').addEventListener('click', () => {
+            Object.keys(markers).forEach(deviceId => {
+                if (map.hasLayer(markers[deviceId])) {
+                    map.removeLayer(markers[deviceId]);
+                    if (paths[deviceId]) {
+                        map.removeLayer(paths[deviceId].polyline);
+                    }
+                }
+            });
+        });
+
+        // Toggle labels
+        document.getElementById('toggleLabels').addEventListener('click', () => {
+            showLabels = !showLabels;
+            Object.entries(devices).forEach(([deviceId, data], index) => {
+                updateDeviceOnMap(deviceId, data, index);
+            });
+        });
+
+        // Toggle paths
+        document.getElementById('togglePaths').addEventListener('click', () => {
+            showPaths = !showPaths;
+            Object.values(paths).forEach(path => {
+                if (showPaths) {
+                    path.polyline.addTo(map);
+                } else {
+                    map.removeLayer(path.polyline);
+                }
+            });
+        });
+
+        // Change map style
+        document.getElementById('mapStyle').addEventListener('change', (e) => {
+            map.removeLayer(currentLayer);
+            currentLayer = mapLayers[e.target.value];
+            currentLayer.addTo(map);
+        });
+
+        // Refresh
+        document.getElementById('refreshDevices').addEventListener('click', () => {
+            location.reload();
+        });
+
+        // Copy tracker link
+        const trackerUrl = window.location.href.replace('viewer.html', 'tracker.html');
+        document.getElementById('trackerLink').value = trackerUrl;
+        
+        document.getElementById('copyLink').addEventListener('click', () => {
+            document.getElementById('trackerLink').select();
+            document.execCommand('copy');
+            alert('Link copied! Share this with devices you want to track.');
+        });
+
+        // Update timestamps every second
+        setInterval(updateDevicesList, 1000);
+    </script>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</body>
+</html>

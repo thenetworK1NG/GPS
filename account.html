@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Account Settings</title>
+    <link rel="stylesheet" href="tracker-style.css">
+</head>
+<body>
+    <div class="container" style="max-width: 800px; margin: 50px auto;">
+        <div class="header">
+            <h1>⚙️ Account Settings</h1>
+            <button onclick="window.location.href='index.html'" class="btn-icon">🏠</button>
+        </div>
+
+        <div style="padding: 40px;">
+            <!-- Profile Section -->
+            <div class="settings-section">
+                <h2>👤 Profile Information</h2>
+                <div class="info-box" style="margin-bottom: 30px;">
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; color: #666; font-weight: 600;">Display Name</label>
+                        <input type="text" id="displayName" class="input-field" style="width: 100%;" readonly>
+                    </div>
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; color: #666; font-weight: 600;">Email</label>
+                        <input type="email" id="userEmail" class="input-field" style="width: 100%;" readonly>
+                    </div>
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; color: #666; font-weight: 600;">User ID</label>
+                        <input type="text" id="userId" class="input-field" style="width: 100%; font-family: monospace; font-size: 12px;" readonly>
+                    </div>
+                </div>
+            </div>
+
+            <!-- My Devices Section -->
+            <div class="settings-section">
+                <h2>📱 My Devices</h2>
+                <div id="myDevicesList" class="info-box">
+                    <p style="text-align: center; color: #999;">Loading devices...</p>
+                </div>
+            </div>
+
+            <!-- Sharing Section -->
+            <div class="settings-section" style="margin-top: 40px;">
+                <h2>🔗 Share Access</h2>
+                <div class="info-box">
+                    <p style="color: #666; margin-bottom: 20px;">
+                        Share your tracking link with people you trust. They must create an account and you can manage their access here.
+                    </p>
+                    
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; color: #666; font-weight: 600;">Your Tracking Link</label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="text" id="shareLink" class="input-field" style="flex: 1; font-family: monospace; font-size: 12px;" readonly>
+                            <button id="copyShareLink" class="btn btn-primary">📋 Copy</button>
+                        </div>
+                    </div>
+
+                    <div style="background: #fff3cd; padding: 15px; border-radius: 8px; border-left: 4px solid #ffc107;">
+                        <strong>⚠️ Privacy Note:</strong>
+                        <p style="margin: 5px 0 0 0; color: #856404; font-size: 14px;">
+                            Currently, all devices under your account are visible to you only. 
+                            Share your account credentials carefully.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Danger Zone -->
+            <div class="settings-section" style="margin-top: 40px;">
+                <h2 style="color: #f44336;">⚠️ Danger Zone</h2>
+                <div class="info-box" style="border-left: 4px solid #f44336;">
+                    <p style="color: #666; margin-bottom: 20px;">
+                        These actions cannot be undone. Please be careful.
+                    </p>
+                    
+                    <button id="deleteAllDevices" class="btn btn-warning" style="margin-right: 10px;">🗑️ Delete All My Devices</button>
+                    <button id="deleteAccount" class="btn btn-danger">❌ Delete Account</button>
+                </div>
+            </div>
+
+            <!-- Back Button -->
+            <div style="margin-top: 40px; text-align: center;">
+                <button onclick="window.location.href='index.html'" class="btn btn-secondary">← Back to Home</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth, onAuthStateChanged, deleteUser } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        import { getDatabase, ref, onValue, remove, query, orderByChild, equalTo } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyCvxVfPYLKoI6FCSy3D3vSmuw5HYRUHvgg",
+            authDomain: "tracking-75c9a.firebaseapp.com",
+            databaseURL: "https://tracking-75c9a-default-rtdb.firebaseio.com",
+            projectId: "tracking-75c9a",
+            storageBucket: "tracking-75c9a.firebasestorage.app",
+            messagingSenderId: "912974869069",
+            appId: "1:912974869069:web:2ab1fb34adf19181872204",
+            measurementId: "G-STEERK07QF"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const database = getDatabase(app);
+
+        let currentUser = null;
+
+        // Check authentication
+        onAuthStateChanged(auth, (user) => {
+            if (!user) {
+                alert('Please login first');
+                window.location.href = 'index.html';
+                return;
+            }
+
+            currentUser = user;
+            
+            // Display user info
+            document.getElementById('displayName').value = user.displayName || 'Not set';
+            document.getElementById('userEmail').value = user.email;
+            document.getElementById('userId').value = user.uid;
+
+            // Set share link
+            const shareLink = `${window.location.origin}/multi-device/index.html`;
+            document.getElementById('shareLink').value = shareLink;
+
+            // Load devices
+            loadUserDevices(user.uid);
+        });
+
+        // Load user's devices
+        function loadUserDevices(userId) {
+            const devicesRef = ref(database, 'devices');
+            const userDevicesQuery = query(devicesRef, orderByChild('userId'), equalTo(userId));
+
+            onValue(userDevicesQuery, (snapshot) => {
+                const devices = snapshot.val();
+                const devicesList = document.getElementById('myDevicesList');
+
+                if (!devices || Object.keys(devices).length === 0) {
+                    devicesList.innerHTML = '<p style="text-align: center; color: #999;">No devices tracking yet</p>';
+                    return;
+                }
+
+                devicesList.innerHTML = Object.entries(devices).map(([deviceId, data]) => {
+                    const timeSince = Math.floor((Date.now() - data.timestamp) / 1000);
+                    const isActive = timeSince < 60;
+
+                    return `
+                        <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid ${isActive ? '#4caf50' : '#999'};">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <strong style="font-size: 16px; color: #333;">${data.name}</strong>
+                                    <br>
+                                    <small style="color: #666;">
+                                        ${isActive ? '🟢 Active' : '⚫ Inactive'} • 
+                                        Last seen: ${timeSince}s ago
+                                    </small>
+                                </div>
+                                <button onclick="deleteDevice('${deviceId}')" class="btn-tiny btn-delete" style="background: #f44336;">Delete</button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            });
+        }
+
+        // Copy share link
+        document.getElementById('copyShareLink').addEventListener('click', () => {
+            const linkInput = document.getElementById('shareLink');
+            linkInput.select();
+            document.execCommand('copy');
+            
+            const btn = document.getElementById('copyShareLink');
+            const originalText = btn.textContent;
+            btn.textContent = '✓ Copied!';
+            setTimeout(() => {
+                btn.textContent = originalText;
+            }, 2000);
+        });
+
+        // Delete device
+        window.deleteDevice = async function(deviceId) {
+            if (confirm('Are you sure you want to delete this device?')) {
+                try {
+                    const deviceRef = ref(database, `devices/${deviceId}`);
+                    await remove(deviceRef);
+                    alert('Device deleted successfully');
+                } catch (error) {
+                    alert('Error deleting device: ' + error.message);
+                }
+            }
+        };
+
+        // Delete all devices
+        document.getElementById('deleteAllDevices').addEventListener('click', async () => {
+            if (!confirm('Are you sure you want to delete ALL your devices? This cannot be undone!')) {
+                return;
+            }
+
+            if (!confirm('This is your final warning. Delete ALL devices?')) {
+                return;
+            }
+
+            try {
+                const devicesRef = ref(database, 'devices');
+                const userDevicesQuery = query(devicesRef, orderByChild('userId'), equalTo(currentUser.uid));
+                
+                const snapshot = await onValue(userDevicesQuery, async (snapshot) => {
+                    const devices = snapshot.val();
+                    if (devices) {
+                        for (const deviceId of Object.keys(devices)) {
+                            await remove(ref(database, `devices/${deviceId}`));
+                        }
+                    }
+                    alert('All devices deleted successfully');
+                }, { onlyOnce: true });
+            } catch (error) {
+                alert('Error deleting devices: ' + error.message);
+            }
+        });
+
+        // Delete account
+        document.getElementById('deleteAccount').addEventListener('click', async () => {
+            if (!confirm('⚠️ WARNING: This will permanently delete your account and all associated data. This CANNOT be undone!')) {
+                return;
+            }
+
+            const confirmText = prompt('Type "DELETE MY ACCOUNT" to confirm:');
+            if (confirmText !== 'DELETE MY ACCOUNT') {
+                alert('Account deletion cancelled');
+                return;
+            }
+
+            try {
+                // First delete all devices
+                const devicesRef = ref(database, 'devices');
+                const userDevicesQuery = query(devicesRef, orderByChild('userId'), equalTo(currentUser.uid));
+                
+                const snapshot = await new Promise((resolve) => {
+                    onValue(userDevicesQuery, resolve, { onlyOnce: true });
+                });
+
+                const devices = snapshot.val();
+                if (devices) {
+                    for (const deviceId of Object.keys(devices)) {
+                        await remove(ref(database, `devices/${deviceId}`));
+                    }
+                }
+
+                // Then delete user account
+                await deleteUser(currentUser);
+                
+                alert('Account deleted successfully');
+                window.location.href = 'index.html';
+            } catch (error) {
+                alert('Error deleting account: ' + error.message + '\n\nYou may need to login again to delete your account.');
+            }
+        });
+    </script>
+</body>
+</html>

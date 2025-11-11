@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Device Tracker - Share Location</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="tracker-style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📱 Device Tracker</h1>
+            <div class="status" id="status">
+                <span class="status-indicator offline"></span>
+                <span id="statusText">Not connected</span>
+            </div>
+        </div>
+
+        <div class="setup-panel" id="setupPanel">
+            <h2>🚀 Setup Your Device</h2>
+            <p>Enter a name for this device to start tracking:</p>
+            
+            <div class="setup-form">
+                <input type="text" id="deviceName" placeholder="e.g., My Phone, Mom's Phone, Car GPS" class="input-field">
+                <button id="startSharing" class="btn btn-primary">Start Sharing Location</button>
+            </div>
+
+            <div class="info-box">
+                <strong>ℹ️ How it works:</strong>
+                <ul>
+                    <li>Enter a unique name for this device</li>
+                    <li>Click "Start Sharing Location"</li>
+                    <li>Allow location permissions</li>
+                    <li>Your location will be shared in real-time</li>
+                    <li>View all devices on the viewer page</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="tracking-panel" id="trackingPanel" style="display: none;">
+            <h2>📍 Currently Tracking</h2>
+            
+            <div class="device-info">
+                <div class="info-row">
+                    <label>Device Name:</label>
+                    <span id="currentDeviceName">--</span>
+                </div>
+                <div class="info-row">
+                    <label>Device ID:</label>
+                    <span id="deviceId">--</span>
+                </div>
+                <div class="info-row">
+                    <label>Status:</label>
+                    <span id="trackingStatus">--</span>
+                </div>
+            </div>
+
+            <div class="location-info">
+                <div class="info-item">
+                    <label>Latitude:</label>
+                    <span id="latitude">--</span>
+                </div>
+                <div class="info-item">
+                    <label>Longitude:</label>
+                    <span id="longitude">--</span>
+                </div>
+                <div class="info-item">
+                    <label>Accuracy:</label>
+                    <span id="accuracy">--</span>
+                </div>
+                <div class="info-item">
+                    <label>Speed:</label>
+                    <span id="speed">--</span>
+                </div>
+                <div class="info-item">
+                    <label>Last Update:</label>
+                    <span id="lastUpdate">--</span>
+                </div>
+                <div class="info-item">
+                    <label>Battery:</label>
+                    <span id="battery">--</span>
+                </div>
+            </div>
+
+            <div id="map"></div>
+
+            <div class="controls">
+                <button id="stopSharing" class="btn btn-danger">Stop Sharing</button>
+                <button id="openViewer" class="btn btn-info">📺 Open Viewer</button>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>🔒 Your location is encrypted and only shared with your Firebase database</p>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        import { getDatabase, ref, set, onValue, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyCvxVfPYLKoI6FCSy3D3vSmuw5HYRUHvgg",
+            authDomain: "tracking-75c9a.firebaseapp.com",
+            databaseURL: "https://tracking-75c9a-default-rtdb.firebaseio.com",
+            projectId: "tracking-75c9a",
+            storageBucket: "tracking-75c9a.firebasestorage.app",
+            messagingSenderId: "912974869069",
+            appId: "1:912974869069:web:2ab1fb34adf19181872204",
+            measurementId: "G-STEERK07QF"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const database = getDatabase(app);
+
+        // Global variables
+        let map;
+        let currentMarker;
+        let watchId = null;
+        let deviceId = null;
+        let deviceName = null;
+        let isTracking = false;
+        let currentUser = null;
+
+        // Check authentication
+        onAuthStateChanged(auth, (user) => {
+            if (!user) {
+                // Not logged in, redirect to index
+                alert('Please login first to use the tracker');
+                window.location.href = 'index.html';
+                return;
+            }
+            currentUser = user;
+        });
+
+        // Initialize map
+        function initMap() {
+            map = L.map('map').setView([0, 0], 2);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 19
+            }).addTo(map);
+        }
+
+        // Update status
+        function updateStatus(text, isOnline) {
+            document.getElementById('statusText').textContent = text;
+            const indicator = document.querySelector('.status-indicator');
+            indicator.className = `status-indicator ${isOnline ? 'online' : 'offline'}`;
+        }
+
+        // Start sharing location
+        document.getElementById('startSharing').addEventListener('click', async () => {
+            const name = document.getElementById('deviceName').value.trim();
+            
+            if (!name) {
+                alert('Please enter a device name');
+                return;
+            }
+
+            deviceName = name;
+            deviceId = 'device_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            
+            // Save device info to localStorage
+            localStorage.setItem('deviceId', deviceId);
+            localStorage.setItem('deviceName', deviceName);
+
+            // Switch to tracking panel
+            document.getElementById('setupPanel').style.display = 'none';
+            document.getElementById('trackingPanel').style.display = 'block';
+            
+            document.getElementById('currentDeviceName').textContent = deviceName;
+            document.getElementById('deviceId').textContent = deviceId;
+
+            initMap();
+            startTracking();
+        });
+
+        // Start tracking
+        function startTracking() {
+            if (!navigator.geolocation) {
+                alert('Geolocation is not supported by your browser');
+                return;
+            }
+
+            const options = {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
+            };
+
+            updateStatus('Acquiring GPS signal...', false);
+
+            watchId = navigator.geolocation.watchPosition(
+                onLocationSuccess,
+                onLocationError,
+                options
+            );
+
+            isTracking = true;
+        }
+
+        // Location success callback
+        async function onLocationSuccess(position) {
+            const { latitude, longitude, accuracy, speed, heading, altitude } = position.coords;
+
+            // Get battery info if available
+            let batteryLevel = null;
+            if (navigator.getBattery) {
+                const battery = await navigator.getBattery();
+                batteryLevel = Math.round(battery.level * 100);
+            }
+
+            // Update UI
+            document.getElementById('latitude').textContent = latitude.toFixed(6);
+            document.getElementById('longitude').textContent = longitude.toFixed(6);
+            document.getElementById('accuracy').textContent = `±${accuracy.toFixed(0)}m`;
+            document.getElementById('speed').textContent = speed ? `${(speed * 3.6).toFixed(1)} km/h` : '0 km/h';
+            document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+            document.getElementById('battery').textContent = batteryLevel ? `${batteryLevel}%` : 'N/A';
+
+            // Update map
+            if (currentMarker) {
+                map.removeLayer(currentMarker);
+            }
+
+            currentMarker = L.marker([latitude, longitude]).addTo(map);
+            map.setView([latitude, longitude], 16);
+
+            // Send to Firebase with user ID
+            const deviceRef = ref(database, `devices/${deviceId}`);
+            await set(deviceRef, {
+                name: deviceName,
+                latitude: latitude,
+                longitude: longitude,
+                accuracy: accuracy,
+                speed: speed || 0,
+                heading: heading || 0,
+                altitude: altitude || 0,
+                battery: batteryLevel,
+                timestamp: Date.now(),
+                lastUpdate: new Date().toISOString(),
+                userId: currentUser ? currentUser.uid : null,
+                userEmail: currentUser ? currentUser.email : null
+            });
+
+            updateStatus('Connected & Tracking', true);
+            document.getElementById('trackingStatus').textContent = '✅ Active';
+        }
+
+        // Location error callback
+        function onLocationError(error) {
+            console.error('Location error:', error);
+            updateStatus('Location error', false);
+            document.getElementById('trackingStatus').textContent = '❌ Error';
+        }
+
+        // Stop sharing
+        document.getElementById('stopSharing').addEventListener('click', () => {
+            if (watchId) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+            }
+
+            // Remove from Firebase
+            if (deviceId) {
+                const deviceRef = ref(database, `devices/${deviceId}`);
+                set(deviceRef, null);
+            }
+
+            localStorage.removeItem('deviceId');
+            localStorage.removeItem('deviceName');
+
+            location.reload();
+        });
+
+        // Open viewer
+        document.getElementById('openViewer').addEventListener('click', () => {
+            window.open('viewer.html', '_blank');
+        });
+
+        // Check for saved device
+        window.addEventListener('load', () => {
+            const savedDeviceId = localStorage.getItem('deviceId');
+            const savedDeviceName = localStorage.getItem('deviceName');
+
+            if (savedDeviceId && savedDeviceName) {
+                deviceId = savedDeviceId;
+                deviceName = savedDeviceName;
+
+                document.getElementById('setupPanel').style.display = 'none';
+                document.getElementById('trackingPanel').style.display = 'block';
+                document.getElementById('currentDeviceName').textContent = deviceName;
+                document.getElementById('deviceId').textContent = deviceId;
+
+                initMap();
+                startTracking();
+            }
+        });
+    </script>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</body>
+</html>
