@@ -1,0 +1,611 @@
+/* Phone Tracking App - Styles */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+}
+
+/* Header */
+.header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 20px 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.header h1 {
+    font-size: 28px;
+    font-weight: 600;
+}
+
+.header-controls {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.btn-icon {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    padding: 10px 15px;
+    border-radius: 8px;
+    font-size: 20px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-icon:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.1);
+}
+
+.status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255, 255, 255, 0.2);
+    padding: 8px 16px;
+    border-radius: 20px;
+}
+
+.status-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+}
+
+.status-indicator.online {
+    background-color: #4caf50;
+}
+
+.status-indicator.offline {
+    background-color: #f44336;
+    animation: none;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+/* Controls */
+.controls {
+    padding: 20px 30px;
+    background: #f5f5f5;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn-primary {
+    background: #4caf50;
+    color: white;
+}
+
+.btn-danger {
+    background: #f44336;
+    color: white;
+}
+
+.btn-secondary {
+    background: #2196f3;
+    color: white;
+}
+
+.btn-warning {
+    background: #ff9800;
+    color: white;
+}
+
+.btn-info {
+    background: #00bcd4;
+    color: white;
+}
+
+.btn-success {
+    background: #8bc34a;
+    color: white;
+}
+
+/* Route Controls */
+.route-controls {
+    padding: 15px 30px;
+    background: #e8f5e9;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+    border-bottom: 1px solid #c8e6c9;
+}
+
+.playback-slider {
+    flex: 1;
+    min-width: 150px;
+    height: 8px;
+    border-radius: 5px;
+    background: #ddd;
+    outline: none;
+    cursor: pointer;
+}
+
+.playback-slider::-webkit-slider-thumb {
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    background: #4caf50;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.playback-slider::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    background: #4caf50;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+#playbackSpeedLabel {
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+}
+
+/* Geofence Controls */
+.geofence-controls {
+    padding: 20px 30px;
+    background: #fff3e0;
+    border-bottom: 1px solid #ffe0b2;
+}
+
+.geofence-controls h3 {
+    font-size: 18px;
+    margin-bottom: 15px;
+    color: #333;
+}
+
+.geofence-inputs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+}
+
+.geofence-input {
+    padding: 10px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    font-size: 14px;
+    flex: 1;
+    min-width: 150px;
+}
+
+.geofence-input:focus {
+    outline: none;
+    border-color: #ff9800;
+}
+
+.geofence-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.geofence-item {
+    background: white;
+    padding: 12px;
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+.geofence-item-info {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.geofence-item-name {
+    font-weight: 600;
+    color: #333;
+}
+
+.geofence-item-details {
+    font-size: 12px;
+    color: #666;
+}
+
+.geofence-item-actions {
+    display: flex;
+    gap: 5px;
+}
+
+.btn-small {
+    padding: 6px 12px;
+    font-size: 12px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-delete {
+    background: #f44336;
+    color: white;
+}
+
+.btn-locate {
+    background: #2196f3;
+    color: white;
+}
+
+/* Map View Toggle */
+.map-view-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: auto;
+}
+
+.map-view-toggle label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+}
+
+.view-select {
+    padding: 10px 16px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    background: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 150px;
+}
+
+.view-select:hover {
+    border-color: #667eea;
+}
+
+.view-select:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+/* Info Panel */
+.info-panel {
+    padding: 20px 30px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    background: white;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.info-item label {
+    font-size: 12px;
+    color: #666;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.info-item span {
+    font-size: 16px;
+    color: #333;
+    font-weight: 500;
+}
+
+/* GPS Tips */
+.gps-tips {
+    padding: 20px 30px;
+    background: #e3f2fd;
+    border-left: 4px solid #2196f3;
+    margin: 0;
+}
+
+.gps-tips strong {
+    display: block;
+    margin-bottom: 10px;
+    color: #1976d2;
+    font-size: 16px;
+}
+
+.gps-tips ul {
+    margin: 0;
+    padding-left: 20px;
+    color: #555;
+}
+
+.gps-tips li {
+    margin: 5px 0;
+    font-size: 14px;
+}
+
+/* Accuracy Indicator */
+.accuracy-indicator {
+    font-weight: bold;
+}
+
+/* Map */
+#map {
+    height: 500px;
+    width: 100%;
+    border-top: 3px solid #667eea;
+    border-bottom: 3px solid #667eea;
+}
+
+/* History Panel */
+.history-panel {
+    padding: 20px 30px;
+    background: #f9f9f9;
+}
+
+.history-panel h3 {
+    font-size: 18px;
+    margin-bottom: 15px;
+    color: #333;
+}
+
+#historyList {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.history-item {
+    background: white;
+    padding: 12px;
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    font-size: 14px;
+}
+
+.history-item strong {
+    color: #667eea;
+    min-width: 40px;
+}
+
+.history-item span:nth-child(2) {
+    color: #666;
+    font-size: 12px;
+}
+
+.history-item span:nth-child(3) {
+    color: #333;
+    font-family: monospace;
+}
+
+/* Custom marker styles */
+.custom-marker {
+    background: transparent;
+    border: none;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    body {
+        padding: 10px;
+    }
+
+    .header {
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+    }
+
+    .header h1 {
+        font-size: 22px;
+    }
+
+    .controls {
+        padding: 15px;
+        justify-content: center;
+    }
+
+    .btn {
+        flex: 1;
+        min-width: 120px;
+    }
+
+    .map-view-toggle {
+        width: 100%;
+        margin-left: 0;
+        margin-top: 10px;
+        justify-content: center;
+    }
+
+    .view-select {
+        flex: 1;
+    }
+
+    .info-panel {
+        padding: 15px;
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    #map {
+        height: 400px;
+    }
+
+    .history-panel {
+        padding: 15px;
+    }
+
+    .history-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+    }
+}
+
+@media (max-width: 480px) {
+    .info-panel {
+        grid-template-columns: 1fr;
+    }
+
+    #map {
+        height: 300px;
+    }
+}
+
+/* Loading animation */
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.loading {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+/* Dark Mode Styles */
+body.dark-mode {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+}
+
+body.dark-mode .container {
+    background: #1e1e1e;
+}
+
+body.dark-mode .header {
+    background: linear-gradient(135deg, #0f3460 0%, #16213e 100%);
+}
+
+body.dark-mode .controls,
+body.dark-mode .route-controls {
+    background: #2a2a2a;
+}
+
+body.dark-mode .geofence-controls {
+    background: #2a2a2a;
+    border-bottom-color: #3a3a3a;
+}
+
+body.dark-mode .info-panel {
+    background: #1e1e1e;
+    border-bottom-color: #3a3a3a;
+}
+
+body.dark-mode .info-item label {
+    color: #aaa;
+}
+
+body.dark-mode .info-item span {
+    color: #eee;
+}
+
+body.dark-mode .history-panel {
+    background: #2a2a2a;
+}
+
+body.dark-mode .history-panel h3,
+body.dark-mode .geofence-controls h3,
+body.dark-mode #playbackSpeedLabel {
+    color: #eee;
+}
+
+body.dark-mode .history-item,
+body.dark-mode .geofence-item {
+    background: #333;
+}
+
+body.dark-mode .history-item span:nth-child(3),
+body.dark-mode .geofence-item-name {
+    color: #eee;
+}
+
+body.dark-mode .geofence-input,
+body.dark-mode .view-select {
+    background: #333;
+    color: #eee;
+    border-color: #555;
+}
+
+body.dark-mode .geofence-input:focus,
+body.dark-mode .view-select:focus {
+    border-color: #667eea;
+}
+
+body.dark-mode .map-view-toggle label {
+    color: #eee;
+}
+
+body.dark-mode .gps-tips {
+    background: #1e3a5f;
+    border-left-color: #2196f3;
+}
+
+body.dark-mode .gps-tips strong {
+    color: #64b5f6;
+}
+
+body.dark-mode .gps-tips ul,
+body.dark-mode .gps-tips li {
+    color: #ccc;
+}
